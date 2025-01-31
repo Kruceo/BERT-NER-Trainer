@@ -1,0 +1,15 @@
+a O
+daniela B-PER
+soarez I-PER
+vai O
+comprar O
+um O
+carro O
+? O
+
+o O
+lucas B-PER
+santos I-PER
+foi O
+pra O
+curitiba O
