@@ -1,22 +1,24 @@
-from transformers import BertTokenizerFast, BertForTokenClassification
-from transformers import Trainer, TrainingArguments
+from transformers import EarlyStoppingCallback,get_scheduler, AdamW,BertTokenizerFast, BertForTokenClassification,Trainer, TrainingArguments
 from kset import load_dataset
 from torch import cuda, device
 from ner_dataset import NERDataset
-tokenizer = BertTokenizerFast.from_pretrained('neuralmind/bert-base-portuguese-cased', use_fast=True)
-model = BertForTokenClassification.from_pretrained('neuralmind/bert-base-portuguese-cased', num_labels=3)  # 3 classes: B-PER, I-PER, O
+
+model_name = 'neuralmind/bert-base-portuguese-cased'
+# model_name = './model_output'
+tokenizer = BertTokenizerFast.from_pretrained(model_name, use_fast=True)
+model = BertForTokenClassification.from_pretrained(model_name, num_labels=3)  # 3 classes: B-PER, I-PER, O
 
 model_output="./model_output"
 
 main_device = device("cuda" if cuda.is_available() else "cpu")  # Nome da GPU
 
-if cuda.is_available():
-    print("Using",cuda.get_device_name(0))    
+
+print("Using",cuda.get_device_name(0))    
 
 tokens,labels = load_dataset('train.txt')
 
-training_slice_p = 0.8
-evaluate_slice_p = 0.1
+training_slice_p = 0.70
+evaluate_slice_p = 0.20
 training_slice_start = 0
 training_slice_end = round(len(tokens)*training_slice_p)
 evaluate_slice_start = training_slice_end
@@ -35,25 +37,44 @@ evaluate_ds = NERDataset(tokens[evaluate_slice_start:evaluate_slice_end],labels[
 
 training_args = TrainingArguments(
     output_dir="./results",  # Onde salvar os checkpoints
-    eval_strategy="epoch",  # Avaliação por época
-    # save_strategy="epoch",
+    eval_strategy="steps",  # Avaliação por época
+    
+    eval_steps=100,
+    save_steps=100,
+    save_total_limit=3,
+    load_best_model_at_end=True, 
+    metric_for_best_model="eval_loss", 
+    greater_is_better=False,
+    
     report_to="none",
-    learning_rate=4e-5,
-    per_device_train_batch_size=64,
-    per_device_eval_batch_size=64,
-    num_train_epochs=512,
-    weight_decay=0.01,
+    learning_rate=8e-6,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=256,
+    weight_decay=0.5,
     logging_dir="./logs",  # Diretório para logs
-    logging_steps=50
+    logging_steps=10
 )
 
-# Crie o Trainer
+optimizer = AdamW(model.parameters(), lr=1e-6, weight_decay=0.08)
+
+lr_scheduler = get_scheduler(
+    "cosine",  
+    optimizer=optimizer,
+    num_warmup_steps=256, 
+    num_training_steps=len(training_ds) 
+    
+)
+
 trainer = Trainer(
     model=model,
     args=training_args,
-    train_dataset=training_ds,  # Seu dataset de treino
-    eval_dataset=evaluate_ds,     # Seu dataset de validação
+    train_dataset=training_ds, 
+    eval_dataset=evaluate_ds,
+    optimizers=(optimizer,lr_scheduler)
 )
+
+trainer.add_callback(EarlyStoppingCallback(early_stopping_patience=3))
 
 # # Treine o modelo
 trainer.train()

@@ -27,7 +27,7 @@ class NERDataset(Dataset):
 
         aligned_labels = self.align_labels_with_tokens(labels, encoding)
         
-        # Retornar tensores
+        # Retornar em formato tensor
         return {
             "input_ids": encoding["input_ids"].squeeze(0),
             "attention_mask": encoding["attention_mask"].squeeze(0),

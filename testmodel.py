@@ -28,7 +28,7 @@ sentences = NERDataset(tokens,labels, tokenizer,label2id)
 
 decoded_sentences = sentences.to_decoded()
 
-dataloader = DataLoader(decoded_sentences, batch_size=8)
+dataloader = DataLoader(decoded_sentences, batch_size=32)
 
 results = []
 for batch in dataloader:
@@ -44,7 +44,6 @@ for result_index in range(len(results)):
     total = len(results[result_index])
     total_tokens += total
     correct = 0
-    
     
     for token_res_index in range(len(results[result_index])):
         result_label = results[result_index][token_res_index]['entity']
